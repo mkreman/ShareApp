@@ -1,3 +1,4 @@
+import os
 import smtplib
 import webbrowser
 import mimetypes
@@ -350,7 +351,7 @@ class App:
         Button(top_frame, bd=1, fg=self.variables[self.fg_color],
                font=(self.variables[self.font], int(self.variables[self.button_size]), 'bold'),
                text='Get', bg=self.variables[self.button_bg_color], command=lambda: [
-            self.update_entry(users_dict, selected_user)]).pack(padx=5, pady=5, side='left')
+                self.update_entry(users_dict, selected_user)]).pack(padx=5, pady=5, side='left')
 
         top_frame.pack(side='top')
         self.bottom_frame.pack(side='top')
@@ -364,8 +365,7 @@ class App:
                bg=self.variables[self.button_bg_color],
                command=lambda: [
                    Database.update_email(selected_user.get(), self.selected_user_email.get()),
-                   edit_user_window.destroy()]) \
-            .pack(padx=5, pady=5)
+                   edit_user_window.destroy()]).pack(padx=5, pady=5)
         button_frame.pack(side='bottom')
         edit_user_window.geometry('400x150')
         edit_user_window.grab_set()
@@ -382,18 +382,22 @@ class App:
     def create_confirmation_window(self, users):
         if [users.get(i) for i in users.curselection()]:
             confirmation_window = Toplevel()
+            confirmation_window.title('Delete Members')
+            icon = PhotoImage(file='images/delete.png')
+            confirmation_window.iconphoto(False, icon)
+
             Label(master=confirmation_window,
                   text=f"Are you sure, you want to remove '{', '.join([users.get(i) for i in users.curselection()])}'",
                   fg='red',
-                  font=(self.variables[self.font], 15, 'bold'),
+                  font=(self.variables[self.font], 12, 'bold'),
                   bg=self.variables[self.bg_color]).pack(side='top', padx=5, pady=5, fill='both')
             Button(confirmation_window, bd=1, fg=self.variables[self.fg_color],
                    font=(self.variables[self.font], int(self.variables[self.button_size]), 'bold'),
                    text='Delete', bg=self.variables[self.button_bg_color], command=lambda: [
-                confirmation_window.destroy(),
-                self.delete_user(),
-                self.add_member_window.destroy(),
-                self.add_members()]).pack(padx=5, pady=5, side='top')
+                    confirmation_window.destroy(),
+                    self.delete_user(),
+                    self.add_member_window.destroy(),
+                    self.add_members()]).pack(padx=5, pady=5, side='top')
             confirmation_window.config(bg=self.variables[self.bg_color])
             confirmation_window.grab_set()
             confirmation_window.mainloop()
@@ -594,7 +598,7 @@ class App:
 
         Button(button_frame, bd=1, fg=self.variables[self.fg_color], font=(
             self.variables[self.font], int(self.variables[self.button_size])), text='Restart',
-            bg=self.variables[self.button_bg_color], command=lambda: [restart_application(self.main_panel)]). \
+               bg=self.variables[self.button_bg_color], command=lambda: [restart_application(self.main_panel)]). \
             pack(side='left', padx=4, pady=4)
 
         def destory_restart_dialog_window():
@@ -602,7 +606,7 @@ class App:
 
         Button(button_frame, bd=1, fg=self.variables[self.fg_color], font=(
             self.variables[self.font], int(self.variables[self.button_size])), text='Cancel',
-            bg=self.variables[self.button_bg_color], command=lambda: [destory_restart_dialog_window()]). \
+               bg=self.variables[self.button_bg_color], command=lambda: [destory_restart_dialog_window()]). \
             pack(side='left', padx=4, pady=4)
         button_frame.pack(side='bottom')
 
@@ -649,8 +653,8 @@ class App:
               bg=self.variables[self.bg_color]).grid(row=2, column=0, padx=25, pady=4, sticky=E)
         Button(setting_option_frame, bd=1, fg=self.variables[self.fg_color], font=(
             self.variables[self.font], int(self.variables[self.button_size])), text='Pick Color',
-            bg=self.variables[self.entry_bg_color],
-            command=lambda: [change_value(self.entry_bg_color)]). \
+               bg=self.variables[self.entry_bg_color],
+               command=lambda: [change_value(self.entry_bg_color)]). \
             grid(row=2, column=1, padx=4, pady=4)
 
         Label(setting_option_frame, text="Window's Background Color",
@@ -658,7 +662,7 @@ class App:
               bg=self.variables[self.bg_color]).grid(row=3, column=0, padx=25, pady=4, sticky=E)
         Button(setting_option_frame, bd=1, fg=self.variables[self.fg_color], font=(
             self.variables[self.font], int(self.variables[self.button_size])), text='Pick Color',
-            bg=self.variables[self.bg_color], command=lambda: [change_value(self.bg_color)]). \
+               bg=self.variables[self.bg_color], command=lambda: [change_value(self.bg_color)]). \
             grid(row=3, column=1, padx=4, pady=4)
 
         Label(setting_option_frame, text="Font", font=(self.variables[self.font], 15, 'bold'),
@@ -680,8 +684,8 @@ class App:
 
         Button(setting_window, bd=1, fg=self.variables[self.fg_color], font=(
             self.variables[self.font], int(self.variables[self.button_size])), text='Save Changes',
-            bg=self.variables[self.button_bg_color], command=lambda: [
-            change_font(self.font, button_font_value), self.create_restart_dialog_window()]). \
+               bg=self.variables[self.button_bg_color], command=lambda: [
+                change_font(self.font, button_font_value), self.create_restart_dialog_window()]). \
             pack(side='bottom', padx=4, pady=20)
 
         # setting_window window's background color
@@ -747,8 +751,6 @@ class App:
 
                 maintype, subtype = ctype.split("/", 1)
 
-                if not os.path.exists(os.path.join(app_data_location, 'items')):
-                    os.mkdir(os.path.join(app_data_location, 'items'))
                 with open(os.path.join(app_data_location, 'items', csv_name), "rb") as fp:
                     attachment = MIMEBase(maintype, subtype)
                     attachment.set_payload(fp.read())
@@ -758,22 +760,42 @@ class App:
                 msg.attach(attachment)
 
                 if share - self.d_investor_money[mem] > 0:
-                    pay_message = open('messages/pay_money_message.html') \
-                        .read().format(v1=self.total_money.get(),
-                                       v2=round(share, 2),
-                                       v3=self.d_investor_money[mem],
-                                       v4=round(share - self.d_investor_money[mem], 2),
-                                       v5=name,
-                                       phone=phone,
-                                       phone_pay_upi=phone_pay_upi,
-                                       g_pay_upi=g_pay_upi,
-                                       paytm_upi=paytm_upi)
-                    msg_body = MIMEText(pay_message, 'html')
-
-                    qr_code = MIMEImage(open(os.path.join(app_data_location, 'QR_Codes.png'), 'rb').read())
-                    qr_code.add_header('Content-ID', '<qrcode>')
-
-                    msg.attach(qr_code)
+                    try:
+                        qr_code_line_1 = """<p style="margin: 0; font-size: 14px;"><em><strong>QR Codes are given below
+                         to make payments</strong></em></p>"""
+                        qr_code_line_2 = """<div align="center" style="line-height:10px"><img src="cid:qrcode"
+                         style="display: block; height: auto; border: 0; width: 325px; max-width: 100%;" width="325"/>
+                         </div>"""
+                        qr_code = MIMEImage(open('./images/QR_Codes.png', 'rb').read())
+                        qr_code.add_header('Content-ID', '<qrcode>')
+                        msg.attach(qr_code)
+                        pay_message = open('messages/pay_money_message.html') \
+                            .read().format(v1=self.total_money.get(),
+                                           v2=round(share, 2),
+                                           v3=self.d_investor_money[mem],
+                                           v4=round(share - self.d_investor_money[mem], 2),
+                                           v5=name,
+                                           phone=phone,
+                                           phone_pay_upi=phone_pay_upi,
+                                           g_pay_upi=g_pay_upi,
+                                           paytm_upi=paytm_upi,
+                                           qr_code_line_1=qr_code_line_1,
+                                           qr_code_line_2=qr_code_line_2)
+                        msg_body = MIMEText(pay_message, 'html')
+                    except FileNotFoundError:
+                        pay_message = open('messages/pay_money_message.html') \
+                            .read().format(v1=self.total_money.get(),
+                                           v2=round(share, 2),
+                                           v3=self.d_investor_money[mem],
+                                           v4=round(share - self.d_investor_money[mem], 2),
+                                           v5=name,
+                                           phone=phone,
+                                           phone_pay_upi=phone_pay_upi,
+                                           g_pay_upi=g_pay_upi,
+                                           paytm_upi=paytm_upi,
+                                           qr_code_line_1="",
+                                           qr_code_line_2="")
+                        msg_body = MIMEText(pay_message, 'html')
 
                     p4 += f'<br/>{mem} will give you {round(share - self.d_investor_money[mem], 2)}&#8377;'
                 else:
@@ -818,8 +840,7 @@ class App:
             smtp.login(my_email_address, email_password)
             smtp.send_message(d_msg)
 
-        notification.notify(title="Share App", message="All emails are sent", app_name="Share App",
-                            app_icon='./images/logo.ico')
+        notification.notify(title="Share App", message="Mails sent", app_name="Share App", app_icon='./images/logo.ico')
 
         self.after_sending_emails()
 
@@ -875,7 +896,7 @@ class App:
 
         # Creating main window
         self.main_panel = Tk()
-        self.main_panel.title("Share")
+        self.main_panel.title("Share App")
 
         # Icon of the main window
         self.main_panel.iconbitmap('images/logo.ico')

@@ -2,8 +2,7 @@ from datetime import datetime
 from tkinter.colorchooser import askcolor
 from tkinter import filedialog
 from database import *
-from cv2 import imread, imwrite
-import numpy as np
+from PIL import Image
 
 
 def item_name(event_name):
@@ -28,24 +27,21 @@ def save_profile(dictionary):
 
 
 def combine_images(image_path):
-    max_size = [0, 0, 3]
-    for image in image_path:
-        im = imread(image)
-        max_size = (max(max_size[0], im.shape[0]), max(max_size[1], im.shape[1]), 3)
+    images = [Image.open(x) for x in image_path]
+    widths, heights = zip(*(i.size for i in images))
 
-    resulted_image = np.full(fill_value=255, shape=(max_size[0], max_size[1] * len(image_path), max_size[2]),
-                             dtype='int')
-    y = 0
-    for i in range(len(image_path)):
-        image_name = image_path[i]
-        image = imread(image_name)
-        image_shape = image.shape
-        mid_range = ((max_size[0] - image_shape[0]) // 2, (max_size[1] - image_shape[1]) // 2)
-        resulted_image[mid_range[0]:mid_range[0] + image_shape[0], y + mid_range[1]:y + mid_range[1] + image_shape[1], :] =\
-            image
+    x_offset = 0
+    total_width = sum(widths) + (len(images) - 1) * 10
+    max_height = max(heights)
 
-        y += image_shape[1] + mid_range[1] * 2
-    imwrite(os.path.join(app_data_location, 'QR_codes.png'), resulted_image)
+    new_im = Image.new('RGB', (total_width, max_height))
+
+    for im in images:
+        y_offset = (max_height - im.size[1]) // 2
+        new_im.paste(im, (x_offset, y_offset))
+        x_offset += im.size[0] + 10
+
+    new_im.save(os.path.join(app_data_location, 'QR_codes.png'))
 
 
 def browse_files():
