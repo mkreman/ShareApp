@@ -5,10 +5,11 @@ import shutil
 
 app_data_location = os.path.join(os.getenv('APPDATA'), 'MkReman', 'Share App')
 if not os.path.exists(os.path.join(app_data_location, 'DataBase.db')):
-    os.makedirs(app_data_location)
+    os.mkdir(app_data_location)
     shutil.copy('./DataBase.db', os.path.join(app_data_location, 'DataBase.db'))
 
 conn = sqlite3.connect(os.path.join(app_data_location, 'DataBase.db'))
+
 c = conn.cursor()
 
 

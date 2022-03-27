@@ -1,4 +1,3 @@
-import os
 import smtplib
 import webbrowser
 import mimetypes
@@ -161,7 +160,7 @@ class App:
 
         if not self.list_of_members:
             Label(master=self.add_member_window,
-                  text='Please select atleast one member',
+                  text='Minimum one member should be selected',
                   font=(self.variables[self.font], 10),
                   bg=self.variables[self.bg_color],
                   fg='red').pack(padx=4, pady=4, fill='x')
@@ -766,7 +765,7 @@ class App:
                         qr_code_line_2 = """<div align="center" style="line-height:10px"><img src="cid:qrcode"
                          style="display: block; height: auto; border: 0; width: 325px; max-width: 100%;" width="325"/>
                          </div>"""
-                        qr_code = MIMEImage(open('./images/QR_Codes.png', 'rb').read())
+                        qr_code = MIMEImage(open(os.path.join(app_data_location, 'QR_Codes.png'), 'rb').read())
                         qr_code.add_header('Content-ID', '<qrcode>')
                         msg.attach(qr_code)
                         pay_message = open('messages/pay_money_message.html') \
@@ -840,7 +839,8 @@ class App:
             smtp.login(my_email_address, email_password)
             smtp.send_message(d_msg)
 
-        notification.notify(title="Share App", message="Mails sent", app_name="Share App", app_icon='./images/logo.ico')
+        notification.notify(title="Share App", message="All emails are sent", app_name="Share App",
+                            app_icon='./images/logo.ico')
 
         self.after_sending_emails()
 
@@ -899,7 +899,8 @@ class App:
         self.main_panel.title("Share App")
 
         # Icon of the main window
-        self.main_panel.iconbitmap('images/logo.ico')
+        p = PhotoImage(file='images/logo.png')
+        self.main_panel.iconphoto(False, p)
 
         # Creating Menubar
         menu_bar = Menu(self.main_panel)

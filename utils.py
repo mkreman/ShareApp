@@ -1,3 +1,4 @@
+import os.path
 from datetime import datetime
 from tkinter.colorchooser import askcolor
 from tkinter import filedialog
@@ -27,6 +28,8 @@ def save_profile(dictionary):
 
 
 def combine_images(image_path):
+    if not image_path:
+        return
     images = [Image.open(x) for x in image_path]
     widths, heights = zip(*(i.size for i in images))
 
