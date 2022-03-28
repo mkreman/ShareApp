@@ -1,6 +1,4 @@
-import os.path
 from datetime import datetime
-from tkinter.colorchooser import askcolor
 from tkinter import filedialog
 from database import *
 from PIL import Image
@@ -12,24 +10,11 @@ def item_name(event_name):
     return name
 
 
-def change_value(variable):
-    colors = askcolor(title="Choose Color")
-    if colors[1] is not None:
-        Database.update_meta_value(variable, colors[1])
-
-
-def change_font(button_font, button_font_value):
-    Database.update_meta_value(button_font, button_font_value.get())
-
-
-def save_profile(dictionary):
-    for key in dictionary.keys():
-        Database.update_meta_value(key, dictionary[key].get())
-
-
 def combine_images(image_path):
-    if not image_path:
-        return
+    """This function saves combined qr code if multiple images are selected or single qr code if not
+       in UserAppDataFolder/MkReman/Share App folder.
+       If image_path is None then this function will not be called from share.py"""
+    image_path = image_path.split(',')
     images = [Image.open(x) for x in image_path]
     widths, heights = zip(*(i.size for i in images))
 
@@ -47,12 +32,12 @@ def combine_images(image_path):
     new_im.save(os.path.join(app_data_location, 'QR_codes.png'))
 
 
-def browse_files():
+def browse_qr_codes():
     filenames = filedialog.askopenfilenames(initialdir="/", title="Select a File",
                                             filetypes=(("PNG files", "*.png*"), ("all files", "*.*")))
 
     # It returns a tuple of selected files
-    combine_images(list(filenames))
+    return list(filenames)
 
 
 def get_upi_ids(upi_ids):
