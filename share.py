@@ -11,6 +11,9 @@ from tkinter import messagebox
 from tkinter import ttk
 from plyer import notification
 from utils import *
+import threading
+import urllib
+import urllib.request  # urllib.request.urlopen require this to be imported
 
 
 class App:
@@ -109,7 +112,12 @@ class App:
         # Creating content on main window according to settings
         self.create_main_window()
         # Size of the main panel
-        self.main_panel.minsize(1050, 185)
+        self.main_panel.minsize(1100, 185)
+
+        self.height = self.main_panel.winfo_screenheight() // 2 - 185 // 2
+        self.width = self.main_panel.winfo_screenwidth() // 2 - 1100 // 2
+        self.main_panel.geometry(f'1100x185+{self.width}+{self.height}')
+
         self.main_panel.mainloop()
 
     def add_members_to_list(self, box):
@@ -121,100 +129,123 @@ class App:
         if self.event.get() == '':
             messagebox.showwarning(master=self.main_panel, title='Error', message='Please add title for the event')
             return
-        self.add_member_window = Toplevel(master=self.main_panel)
-        self.add_member_window.title('Select Members for the Event')
-        self.add_member_window.geometry('500x500')
-        # Icon of add member window
-        self.add_member_window.iconbitmap('./images/outline_group_add_black_36dp.ico')
 
-        scrollbar = Scrollbar(self.add_member_window)
-        scrollbar.pack(side=RIGHT, fill=Y)
+        try:
+            # Disable the main_panel
+            self.main_panel.attributes('-disabled', True)
 
-        label = Label(self.add_member_window,
-                      text='Select members below',
-                      font=(self.font, self.font_size),
-                      bg=self.bg_color,
-                      fg=self.fg_color,
-                      padx=10, pady=15)
-        label.pack()
+            self.add_member_window = Toplevel(master=self.main_panel)
+            self.add_member_window.title('Select Members for the Event')
+            self.add_member_window.geometry('500x500')
+            # Icon of add member window
+            self.add_member_window.iconbitmap('./images/outline_group_add_black_36dp.ico')
 
-        self.list_box = Listbox(self.add_member_window, selectmode="multiple", yscrollcommand=scrollbar.set)
+            # Transfer focus from Add event entry to add_member_window
+            self.add_member_window.focus()
 
-        self.list_box.config(font=(self.font, self.font_size),
-                             bd=5,
-                             fg=self.fg_color,
-                             bg=self.entry_bg_color)
-        self.list_box.pack(padx=10, pady=10, expand=YES, fill="both")
+            list_box_frame = Frame(master=self.add_member_window, bg=self.bg_color)
 
-        list_of_members_1 = list(get_members().keys())
+            y_scrollbar = Scrollbar(list_box_frame)
+            y_scrollbar.pack(side=RIGHT, fill=Y, pady=10)
 
-        for each_item in range(len(list_of_members_1)):
-            if list_of_members_1[each_item] == self.name:
-                self.list_box.insert(0, list_of_members_1[each_item])
-            else:
-                self.list_box.insert(END, list_of_members_1[each_item])
-            self.list_box.itemconfig(each_item, bg=self.entry_bg_color)
+            Label(self.add_member_window,
+                  text='Select members below',
+                  font=(self.font, self.font_size),
+                  bg=self.bg_color,
+                  fg=self.fg_color,
+                  padx=10, pady=15).pack()
 
-        # Attach listbox to vertical scrollbar
-        scrollbar.config(troughcolor=self.bg_color, command=self.list_box.yview)
+            self.list_box = Listbox(list_box_frame, selectmode="multiple", yscrollcommand=y_scrollbar.set)
 
-        add_members_window_button_frame = Frame(self.add_member_window, bg=self.bg_color)
+            self.list_box.config(font=(self.font, self.font_size),
+                                 bd=5,
+                                 fg=self.fg_color,
+                                 bg=self.entry_bg_color)
+            self.list_box.pack(padx=10, pady=10, expand=YES, fill="both")
 
-        Button(master=add_members_window_button_frame,
-               bd=0,
-               bg=self.bg_color,
-               height=30,
-               width=30,
-               image=self.edit_icon,
-               command=lambda: [self.edit_user()]).pack(side='left', padx=10, pady=10)
-        Button(master=add_members_window_button_frame,
-               bd=0,
-               bg=self.bg_color,
-               height=30,
-               width=30,
-               image=self.delete_icon,
-               command=lambda: [self.create_confirmation_window()]).pack(side='left', padx=10, pady=10)
+            list_of_members_1 = list(get_members().keys())
 
-        Button(master=add_members_window_button_frame,
-               bd=2,
-               fg=self.fg_color,
-               height=1,
-               width=18,
-               font=(self.font, self.button_size),
-               text='Add New Members',
-               bg=self.bg_color,
-               command=lambda: [self.entry_new_member()]).pack(side='left', padx=10, pady=10)
+            for each_item in range(len(list_of_members_1)):
+                if list_of_members_1[each_item] == self.name:
+                    self.list_box.insert(0, list_of_members_1[each_item])
+                else:
+                    self.list_box.insert(END, list_of_members_1[each_item])
+                self.list_box.itemconfig(each_item, bg=self.entry_bg_color)
 
-        Button(master=add_members_window_button_frame,
-               bd=2,
-               fg=self.fg_color,
-               height=1,
-               width=15,
-               font=(self.font, self.button_size),
-               text='Select Members',
-               bg=self.bg_color,
-               command=lambda: [self.add_members_to_list(self.list_box),
-                                self.create_d_investor_money(),
-                                self.destroy_add_member_window()]
-               ).pack(side='left', padx=10, pady=10)
-        add_members_window_button_frame.pack(side='bottom')
+            # Attach listbox to vertical y_scrollbar
+            y_scrollbar.config(troughcolor=self.bg_color, command=self.list_box.yview)
 
-        # Unbinding from main_panel and binding Enter button on add_member_window to Select Members button
-        # After this add_member_window will be destroyed hence binding will be removed from Enter
-        self.main_panel.unbind('<Return>')
-        self.add_member_window.bind('<Return>', lambda event: [
-            self.add_members_to_list(self.list_box),
-            self.create_d_investor_money(),
-            self.destroy_add_member_window()])
+            list_box_frame.pack(fill='both', expand=True)
+            add_members_window_button_frame = Frame(self.add_member_window, bg=self.bg_color)
 
-        self.add_member_window.config(bg=self.bg_color)
-        self.add_member_window.minsize(530, 510)
-        self.add_member_window.grab_set()
-        # self.add_member_window.bell()
-        self.add_member_window.mainloop()
+            Button(master=add_members_window_button_frame,
+                   bd=0,
+                   bg=self.bg_color,
+                   height=30,
+                   width=30,
+                   image=self.edit_icon,
+                   command=lambda: [self.edit_member(pos=self.list_box.curselection())]
+                   ).pack(side='left', padx=10, pady=10)
+            Button(master=add_members_window_button_frame,
+                   bd=0,
+                   bg=self.bg_color,
+                   height=30,
+                   width=30,
+                   image=self.delete_icon,
+                   command=lambda: [self.create_confirmation_window()]).pack(side='left', padx=10, pady=10)
+
+            Button(master=add_members_window_button_frame,
+                   bd=2,
+                   fg=self.fg_color,
+                   height=1,
+                   width=18,
+                   font=(self.font, self.button_size),
+                   text='Add New Members',
+                   bg=self.bg_color,
+                   command=lambda: [self.entry_new_member()]).pack(side='left', padx=10, pady=10)
+
+            Button(master=add_members_window_button_frame,
+                   bd=2,
+                   fg=self.fg_color,
+                   height=1,
+                   width=15,
+                   font=(self.font, self.button_size),
+                   text='Select Members',
+                   bg=self.bg_color,
+                   command=lambda: [self.add_members_to_list(self.list_box),
+                                    self.create_d_investor_money(),
+                                    self.destroy_add_member_window()]
+                   ).pack(side='left', padx=10, pady=10)
+            add_members_window_button_frame.pack(side='bottom')
+
+            # Unbinding from main_panel and binding Enter button on add_member_window to Select Members button
+            # After this add_member_window will be destroyed hence binding will be removed from Enter
+            self.main_panel.unbind('<Return>')
+            self.add_member_window.bind('<Return>', lambda event: [
+                self.add_members_to_list(self.list_box),
+                self.create_d_investor_money(),
+                self.destroy_add_member_window()])
+
+            self.add_member_window.config(bg=self.bg_color)
+            self.add_member_window.minsize(550, 510)
+
+            # Adds flicker effect
+            self.add_member_window.transient(self.main_panel)
+            self.add_member_window.grab_set()
+
+            # mainloop is causing problem with wait_window function
+            # self.add_member_window.mainloop()
+
+            # Wait for add_member_window to close
+            self.main_panel.wait_window(self.add_member_window)
+        finally:
+            # Enable the main_panel
+            self.main_panel.attributes('-disabled', False)
+            # So that main_panel stays on the top of other windows after closing the add_member_window
+            self.main_panel.lift()
 
     def destroy_add_member_window(self):
-        """In order to add members new_entry_frame will be recreated hence destroy all widgets from it first"""
+        """In order to add members, new_entry_frame will be recreated hence destroy all widgets from it first"""
         if self.create_new_entry_flag:
             for widget in self.new_entry_frame.winfo_children():
                 widget.destroy()
@@ -227,17 +258,17 @@ class App:
             self.list_of_items()
             self.create_new_entry()
             self.add_member_window.destroy()
-            
+
             Label(master=self.taskbar_frame,
                   bg=self.bg_color,
                   fg=self.fg_color,
-                  text=f'Members: {len(self.list_of_members)}').grid(row=0, column=2, padx=5, pady=2)
+                  text=f'Members: {len(self.list_of_members)}').pack(side='left', padx=5, pady=2)
 
             self.number_list_items_label = Label(master=self.taskbar_frame,
                                                  bg=self.bg_color,
                                                  fg=self.fg_color,
                                                  text=f'Items: {len(self.items)}')
-            self.number_list_items_label.grid(row=0, column=3, padx=5, pady=2)
+            self.number_list_items_label.pack(side='left', padx=5, pady=2)
 
             Button(master=self.first_row_frame,
                    bd=2,
@@ -247,8 +278,10 @@ class App:
                    font=(self.font, self.button_size),
                    text='Done',
                    bg=self.bg_color,
-                   command=self.send_emails).grid(padx=20, pady=5, row=0, column=4)
-            self.main_panel.bind('<Return>', lambda event: self.send_emails())
+                   command=self.done).grid(padx=20, pady=5, row=0, column=4)
+
+            # Binding Enter key button to Done Button
+            self.main_panel.bind('<Return>', lambda event: self.done())
 
     def create_new_entry(self):
         if not self.create_new_entry_flag:
@@ -325,7 +358,7 @@ class App:
                    text='Submit',
                    bg=self.bg_color,
                    command=lambda: reset_new_entry()
-                   if self.member_input(member_only_expense_flag.get(), self.clicked_user, self.money_var) else None)\
+                   if self.member_input(member_only_expense_flag.get(), self.clicked_user, self.money_var) else None) \
                 .grid(padx=5, pady=5, row=0, column=6, sticky=E)
 
             self.create_new_entry_flag = True
@@ -335,7 +368,7 @@ class App:
                                 bg=self.bg_color,
                                 fg=self.fg_color,
                                 text="*: Paid Money is not included in Total Paid Money")
-        self.star_label.grid(row=0, column=4, padx=5, pady=2)
+        self.star_label.pack(side='left', padx=5, pady=2)
 
     def list_of_items(self):
         """If list of item is already created then this function won't create another one.
@@ -348,7 +381,9 @@ class App:
                   fg=self.fg_color,
                   bg=self.entry_bg_color,
                   name='list_label').pack(side='top', fill=X)
-            self.item_list = ttk.Treeview(self.list_of_items_frame)
+
+            scrollbar = Scrollbar(self.list_of_items_frame)
+            self.item_list = ttk.Treeview(self.list_of_items_frame, yscrollcommand=scrollbar.set)
             style = ttk.Style()
             style.configure("Treeview", foreground=self.fg_color, background=self.bg_color)
             style.configure("Treeview.Heading", background="black", foreground='#00337f', font=8)
@@ -369,6 +404,10 @@ class App:
             self.item_list.heading("Paid For", text='Paid For', anchor=CENTER)
             self.item_list.heading("Paid", text='Money', anchor=CENTER)
             self.item_list.heading("Included", text='Included', anchor=CENTER)
+
+            scrollbar.pack(side='right', fill=Y)
+            # Attach treeview to vertical scrollbar
+            scrollbar.config(troughcolor=self.bg_color, command=self.item_list.yview)
 
             self.item_list.pack(side='top', fill=BOTH, expand=True)
             self.list_of_items_frame.pack(padx=50, pady=50, side='left', fill=BOTH, expand=True)
@@ -392,85 +431,167 @@ class App:
             self.individual_share_label.grid(row=1, column=0, padx=(0, 50), pady=4, sticky=W)
 
             self.extra_details_panel.pack(padx=10, pady=10, side='left')
-            self.main_panel.minsize(1050, 550)
+            self.main_panel.minsize(1100, 550)
             self.list_of_items_flag = True
         else:
             self.individual_share.set(round(self.total_money.get() / len(self.list_of_members), 2))
             self.individual_share_label.config(text=f"Individual Share: {self.individual_share.get()}")
 
-    def edit_user(self):
-        edit_user_window = Toplevel(master=self.main_panel)
-        edit_user_window.title("Edit Member's Details")
-        # Icon of the edit member window
-        edit_user_window.iconbitmap('./images/edit.ico')
-        edit_user_window.config(bg=self.bg_color)
+    def save_member(self, username, email, position, window):
+        """Save member details"""
+        user_dict = get_members()
+        # old name
+        old_name = self.list_box.get(position)
+        # old email
+        old_email = user_dict[old_name]
 
-        def set_value(*args):
-            new_email.set(users_dict[selected_user.get()])
-            selected_user_email_entry.config(textvariable=new_email)
+        names = list(user_dict.keys())
+        names.remove(old_name)
+        emails = list(user_dict.values())
+        emails.remove(old_email)
 
-        users_dict = get_members()
-        selected_user = StringVar(value="Select a User")
-        selected_user.trace('w', set_value)
-        new_email = StringVar(value='')
+        # if email is not changed but name is changed
+        # if email is same and username is changes
+        if email == old_email and username != old_name:
+            # if new username is already exists
+            if username in names:
+                messagebox.showwarning(master=window, parent=window, title='Error',
+                                       message="Username is already exists!")
+            else:
+                # if new username is valid
+                # Remove old name and email
+                Database.remove_member(old_name)
+                # Add new name and email
+                Database.insert_member(username, email)
 
-        Label(master=edit_user_window,
-              fg=self.fg_color,
-              bg=self.bg_color,
-              font=(self.font, self.font_size),
-              text='Select User:').grid(row=0, column=0, padx=10, pady=5, sticky=E)
+                # Change the username in listbox
+                self.list_box.delete(position)
+                self.list_box.insert(position, username)
 
-        selected_user_drop = OptionMenu(edit_user_window, selected_user, *list(users_dict.keys()))
-        selected_user_drop.config(font=(self.font, self.font_size),
-                                  bd=2,
-                                  fg=self.fg_color,
-                                  bg=self.entry_bg_color,
-                                  justify='right')
-        selected_user_drop.grid(row=0, column=1, padx=5, pady=5, sticky=W)
-        selected_user_drop["menu"]["background"] = self.entry_bg_color
-        selected_user_drop["menu"]["font"] = (self.font, self.font_size)
-        selected_user_drop["menu"]["activeborderwidth"] = '1'
-        for x in range(int(selected_user_drop['menu'].index('end')) + 1):
-            selected_user_drop['menu'].entryconfig(x, font=(self.font, self.font_size))
-            selected_user_drop.children['menu'].entryconfig(x, foreground=self.fg_color)
+                # Close the edit_user_window
+                window.destroy()
 
-        Label(master=edit_user_window,
-              fg=self.fg_color,
-              bg=self.bg_color,
-              font=(self.font, self.font_size),
-              text='Email:').grid(row=1, column=0, padx=10, pady=5, sticky=E)
+        # If username is same and email is changed
+        elif username == old_name and email != old_email:
+            # If new email is already exists
+            if email in emails:
+                messagebox.showwarning(master=window, parent=window, title='Error',
+                                       message="Email is already exists!")
+            else:
+                # If new email is valid
+                # Update user
+                Database.update_email(username, email)
+                # Close the edit_user_window
+                window.destroy()
+        # If username and email both are changed
+        elif username != old_name and email != old_email:
+            # Remove old username and email
+            Database.remove_member(old_name)
+            # Add new user
+            Database.insert_member(username, email)
 
-        selected_user_email_entry = Entry(master=edit_user_window,
-                                          font=(self.font, self.font_size),
-                                          width=22,
-                                          textvariable=new_email,
-                                          bd=5,
-                                          fg=self.fg_color,
-                                          bg=self.entry_bg_color,
-                                          justify='right')
-        selected_user_email_entry.grid(row=1, column=1, padx=5, pady=5, sticky=W)
+            # Change the username in listbox
+            self.list_box.delete(position)
+            self.list_box.insert(position, username)
 
-        Button(master=edit_user_window,
-               bd=1,
-               fg=self.fg_color,
-               font=(self.font, self.button_size),
-               text='Save',
-               height=1,
-               width=10,
-               bg=self.bg_color,
-               command=lambda: [Database.update_email(selected_user.get(), new_email.get())
-                                if selected_user.get() != self.name
-                                else messagebox.showwarning(
-                   master=edit_user_window, parent=edit_user_window,
-                   title='Error',
-                   message=f"You can not change Email of default user '{self.name}'"),
-                                edit_user_window.destroy()]).grid(row=2, column=0, columnspan=2, pady=10)
+            # Close the edit_user_window
+            window.destroy()
+        # Username and email both are same
+        else:
+            # Close the edit_user_window
+            window.destroy()
 
-        edit_user_window.resizable(False, False)
-        edit_user_window.bind('<Return>', lambda event: [Database.update_email(selected_user.get(), new_email.get()),
-                                                         edit_user_window.destroy()])
-        edit_user_window.grab_set()
-        edit_user_window.mainloop()
+    def edit_member(self, pos):
+        """Edit member's details"""
+        if len(pos) != 1:
+            messagebox.showwarning(master=self.add_member_window, parent=self.add_member_window, title="Error",
+                                   message="Select only one user to edit!")
+            return
+        else:
+            pos = pos[0]
+        try:
+            # Disable the add_member_window
+            self.add_member_window.attributes('-disabled', True)
+
+            edit_user_window = Toplevel(master=self.main_panel)
+            edit_user_window.title("Edit Member's Details")
+            # Icon of the edit member window
+            edit_user_window.iconbitmap('./images/edit.ico')
+            edit_user_window.config(bg=self.bg_color)
+
+            users_dict = get_members()
+            selected_user = StringVar(value=self.list_box.get(pos))
+            new_email = StringVar(value=users_dict[selected_user.get()])
+
+            Label(master=edit_user_window,
+                  fg=self.fg_color,
+                  bg=self.bg_color,
+                  font=(self.font, self.font_size),
+                  text='Username: ').grid(row=0, column=0, padx=10, pady=5, sticky=E)
+
+            Label(master=edit_user_window,
+                  fg=self.fg_color,
+                  bg=self.bg_color,
+                  font=(self.font, self.font_size),
+                  text='Email: ').grid(row=1, column=0, padx=10, pady=5, sticky=E)
+
+            Entry(master=edit_user_window,
+                  font=(self.font, self.font_size),
+                  width=22,
+                  textvariable=selected_user,
+                  bd=5,
+                  fg=self.fg_color,
+                  bg=self.entry_bg_color,
+                  justify='right').grid(row=0, column=1, padx=5, pady=5, sticky=W)
+
+            Entry(master=edit_user_window,
+                  font=(self.font, self.font_size),
+                  width=22,
+                  textvariable=new_email,
+                  bd=5,
+                  fg=self.fg_color,
+                  bg=self.entry_bg_color,
+                  justify='right').grid(row=1, column=1, padx=5, pady=5, sticky=W)
+
+            Button(master=edit_user_window,
+                   bd=1,
+                   fg=self.fg_color,
+                   font=(self.font, self.button_size),
+                   text='Save',
+                   height=1,
+                   width=10,
+                   bg=self.bg_color,
+                   command=lambda: [
+                       self.save_member(username=selected_user.get(), email=new_email.get(), position=pos,
+                                        window=edit_user_window)
+                       if selected_user.get() != self.name
+                       else messagebox.showwarning(master=edit_user_window,
+                                                   parent=edit_user_window,
+                                                   title='Error',
+                                                   message=f"You can not change Email of default user '{self.name}'")
+                   ]).grid(row=2, column=0, columnspan=2, pady=10)
+
+            edit_user_window.bind('<Return>', lambda event: [
+                self.save_member(username=selected_user.get(), email=new_email.get(), position=pos,
+                                 window=edit_user_window)
+                if selected_user.get() != self.name
+                else messagebox.showwarning(master=edit_user_window,
+                                            parent=edit_user_window,
+                                            title='Error',
+                                            message=f"You can not change Email of default user '{self.name}'")
+            ])
+
+            edit_user_window.resizable(False, False)
+            edit_user_window.grab_set()
+            # Adds flicker effect
+            edit_user_window.transient(self.add_member_window)
+            # Wait for add_member_window to close
+            self.add_member_window.wait_window(edit_user_window)
+        finally:
+            # Enable the add_member_window
+            self.add_member_window.attributes('-disabled', False)
+            # So that add_member_window stays on the top of other windows after closing the edit_user_window
+            self.main_panel.lift()
 
     def create_confirmation_window(self):
         users = [self.list_box.get(i) for i in self.list_box.curselection()]
@@ -488,89 +609,86 @@ class App:
                     self.list_box.delete(self.list_box.get(0, END).index(user))
 
     def entry_new_member(self):
-        self.new_member_window = Toplevel(master=self.main_panel)
-        self.new_member_window.title("Add New Member")
-        # Icon of the new member window
-        self.new_member_window.iconbitmap('images/add_members.ico')
-        # Main panel's background color
-        self.new_member_window.config(bg=self.bg_color)
+        try:
+            # Disable the add_member_window
+            self.add_member_window.attributes('-disabled', True)
 
-        user_name = StringVar()
-        email = StringVar()
+            self.new_member_window = Toplevel(master=self.main_panel)
+            self.new_member_window.title("Add New Member")
+            # Icon of the new member window
+            self.new_member_window.iconbitmap('images/add_members.ico')
+            # Main panel's background color
+            self.new_member_window.config(bg=self.bg_color)
 
-        top_frame = Frame(self.new_member_window, bg=self.bg_color)
-        top_frame.pack(side='top')
+            user_name = StringVar()
+            email = StringVar()
 
-        # Username Entry
-        label_frame = Frame(top_frame, bg=self.bg_color)
-        label_frame.pack(side='left')
+            top_frame = Frame(self.new_member_window, bg=self.bg_color)
+            top_frame.pack(side='top')
 
-        Label(label_frame, text="Member's Name: ", font=(self.font, self.font_size), fg=self.fg_color,
-              bg=self.bg_color).grid(row=0, column=0, padx=5, pady=5, sticky=E)
-        Label(label_frame, text="Email: ", font=(self.font, self.font_size), fg=self.fg_color,
-              bg=self.bg_color).grid(row=1, column=0, padx=5, pady=5, sticky=E)
+            # Username Entry
+            label_frame = Frame(top_frame, bg=self.bg_color)
+            label_frame.pack(side='left')
 
-        # Password entry
-        entry_frame = Frame(top_frame, bg=self.bg_color)
-        entry_frame.pack(side='right')
+            Label(label_frame, text="Member's Name: ", font=(self.font, self.font_size), fg=self.fg_color,
+                  bg=self.bg_color).grid(row=0, column=0, padx=5, pady=5, sticky=E)
+            Label(label_frame, text="Email: ", font=(self.font, self.font_size), fg=self.fg_color,
+                  bg=self.bg_color).grid(row=1, column=0, padx=5, pady=5, sticky=E)
 
-        Entry(entry_frame, font=(self.font, self.font_size), textvariable=user_name, bd=5, fg=self.fg_color,
-              bg=self.entry_bg_color, justify='right').pack(padx=5, pady=5)
-        Entry(entry_frame, font=(self.font, self.font_size), textvariable=email, bd=5, fg=self.fg_color,
-              bg=self.entry_bg_color, justify='right').pack(padx=5, pady=5)
+            # Password entry
+            entry_frame = Frame(top_frame, bg=self.bg_color)
+            entry_frame.pack(side='right')
 
-        # Submit button
-        button_frame = Frame(self.new_member_window, bg=self.bg_color)
-        button_frame.pack(side='bottom')
-        Button(master=button_frame,
-               bd=2,
-               height=1,
-               width=10,
-               fg=self.fg_color,
-               font=(self.font, self.button_size),
-               text='Submit',
-               bg=self.bg_color,
-               command=lambda: [self.insert_new_member(user_name, email)]).pack(pady=10)
+            user_name_entry = Entry(entry_frame, font=(self.font, self.font_size), textvariable=user_name, bd=5,
+                                    fg=self.fg_color, bg=self.entry_bg_color, justify='right')
+            user_name_entry.pack(padx=5, pady=5)
+            user_name_entry.focus()
+            Entry(entry_frame, font=(self.font, self.font_size), textvariable=email, bd=5, fg=self.fg_color,
+                  bg=self.entry_bg_color, justify='right').pack(padx=5, pady=5)
 
-        self.new_member_window.grab_set()
-        self.new_member_window.bind('<Return>', lambda event: [self.insert_new_member(user_name, email)])
-        self.new_member_window.resizable(False, False)
-        self.new_member_window.mainloop()
+            # Submit button
+            button_frame = Frame(self.new_member_window, bg=self.bg_color)
+            button_frame.pack(side='bottom')
+            Button(master=button_frame,
+                   bd=2,
+                   height=1,
+                   width=10,
+                   fg=self.fg_color,
+                   font=(self.font, self.button_size),
+                   text='Submit',
+                   bg=self.bg_color,
+                   command=lambda: [self.insert_new_member(user_name, email)]).pack(pady=10)
+
+            self.new_member_window.grab_set()
+            self.new_member_window.bind('<Return>', lambda event: [self.insert_new_member(user_name, email)])
+            self.new_member_window.resizable(False, False)
+            # Adds flicker effect
+            self.new_member_window.transient(self.add_member_window)
+            # Wait for add_member_window to close
+            self.add_member_window.wait_window(self.new_member_window)
+        finally:
+            # Enable the add_member_window
+            self.add_member_window.attributes('-disabled', False)
+            # So that add_member_window stays on the top of other windows after closing the new_member_window
+            self.add_member_window.lift()
 
     def insert_new_member(self, user_name, email):
-        warning_label = None
         if user_name.get() == '' or email.get() == '':
-            if warning_label is not None:
-                warning_label.destroy()
-            warning_label = Label(master=self.new_member_window,
-                                  text='Username or email is not valid',
-                                  font=(self.font, 10),
-                                  bg=self.bg_color,
-                                  fg='red')
-            warning_label.pack(padx=4, pady=4, side='top', fill='x')
+            messagebox.showwarning(master=self.new_member_window, parent=self.new_member_window,
+                                   title='Error', message="Username or email is not valid")
         elif user_name.get() in get_members().keys():
-            if warning_label is not None:
-                warning_label.destroy()
-            warning_label = Label(master=self.new_member_window,
-                                  text='Username is already exits',
-                                  font=(self.font, 10),
-                                  bg=self.bg_color,
-                                  fg='red')
-            warning_label.pack(padx=4, pady=4, side='top', fill='x')
+            messagebox.showwarning(master=self.new_member_window, parent=self.new_member_window,
+                                   title='Error', message="Username is already exists")
         elif email.get() in get_members().values():
-            if warning_label is not None:
-                warning_label.destroy()
-            warning_label = Label(master=self.new_member_window,
-                                  text="Email is already in use",
-                                  font=(self.font, 10),
-                                  bg=self.bg_color,
-                                  fg='red')
-            warning_label.pack(padx=4, pady=4, side='top', fill='x')
+            messagebox.showwarning(master=self.new_member_window, parent=self.new_member_window,
+                                   title='Error', message="Email is already exists")
         else:
+            # Save new member
             user_name = user_name.get()
             email = email.get()
             Database.insert_member(user_name, email)
 
+            # Insert new member into listbox
             self.list_box.insert(END, user_name)
             self.new_member_window.destroy()
 
@@ -592,7 +710,7 @@ class App:
                 self.total_money_label.config(text=f"Total Paid Money: {self.total_money.get()}")
                 self.star_label.destroy() if self.star_label else None
             else:
-                self.member_only_expenses[member] = money if member not in self.member_only_expenses\
+                self.member_only_expenses[member] = money if member not in self.member_only_expenses \
                     else self.member_only_expenses[member] + money
                 self.item_to_list(username, self.item, self.money_var, "No")
                 self.total_money_label.config(text=f"Total Paid Money: {self.total_money.get()}*")
@@ -633,8 +751,10 @@ class App:
             Label(self.right_top_frame, text='Name', font=(self.font, self.font_size), fg=self.fg_color,
                   bg=self.bg_color).grid(row=0, column=0, padx=4, pady=(15, 4), sticky=E)
 
-            Entry(self.right_top_frame, font=(self.font, self.font_size), textvariable=self.name_var, bd=5, width=25,
-                  bg=self.entry_bg_color, fg=self.fg_color, justify='right').grid(row=0, column=1, padx=4, pady=(15, 4))
+            name_entry = Entry(self.right_top_frame, font=(self.font, self.font_size), textvariable=self.name_var,
+                               bd=5, width=25, bg=self.entry_bg_color, fg=self.fg_color, justify='right')
+            name_entry.grid(row=0, column=1, padx=4, pady=(15, 4))
+            name_entry.focus()
 
             Label(self.right_top_frame, text='Email', font=(self.font, self.font_size), fg=self.fg_color,
                   bg=self.bg_color).grid(row=1, column=0, padx=4, pady=4, sticky=E)
@@ -659,8 +779,11 @@ class App:
                   bg=self.bg_color).grid(row=4, column=0, padx=4, pady=4, sticky=E)
 
             Entry(self.right_top_frame, font=(self.font, self.font_size), textvariable=self.email_password_var, bd=5,
-                  width=25, bg=self.entry_bg_color, fg=self.fg_color,
-                  justify='right').grid(row=4, column=1, padx=4, pady=4)
+                  width=25, bg=self.entry_bg_color, fg=self.fg_color, show='*', justify='right'
+                  ).grid(row=4, column=1, padx=4, pady=4)
+
+            visibility_on_image = PhotoImage(master=self.main_panel, file="images/visibility_off_white.png")
+            Button(self.right_top_frame, image=visibility_on_image, bd=0).grid(row=4, column=2, padx=4)
 
             link_label = Label(master=self.right_top_frame,
                                text='Follow this link to setup your app password using the same email field in Email',
@@ -796,13 +919,15 @@ class App:
                     # We don't want to change font value for task_bar frame's widgets
                     if str(widget).split('.')[-1] == 'task_bar':
                         for child_widget in widget.winfo_children():
+                            if child_widget.winfo_class() == "TSizegrip":
+                                continue
                             child_widget.config(bg=self.bg_color, fg=self.fg_color)
                     else:
                         for child_widget in widget.winfo_children():
                             if str(child_widget).split('.')[-1] == 'list_label':
                                 child_widget.config(font=(self.font, self.font_size), bg=self.entry_bg_color,
                                                     fg=self.fg_color)
-                            if child_widget.winfo_class() == 'Label' and\
+                            if child_widget.winfo_class() == 'Label' and \
                                     str(child_widget).split('.')[-1] != 'list_label':
                                 child_widget.config(font=(self.font, self.font_size), bg=self.bg_color,
                                                     fg=self.fg_color)
@@ -858,6 +983,17 @@ class App:
 
         if profile_changes:
             for variable, value in profile_changes:
+                # Checking if new username or default user email is already exits in Database
+                if variable == 'name_idx' and value in get_members().keys():
+                    messagebox.showwarning(master=self.setting_window, parent=self.setting_window, title='Error',
+                                           message=f"{value} is already exists in database as a name of a different"
+                                                   f" member.")
+                    return
+                elif variable == 'user_email' and value in get_members().values():
+                    messagebox.showwarning(master=self.setting_window, parent=self.setting_window, title='Error',
+                                           message=f"{value} is already exists in database as email of a different"
+                                                   f" member.")
+                    return
                 Database.update_profile_value(variable, value)
                 self.profile_values[variable] = value
             profile_changes.clear()
@@ -897,151 +1033,136 @@ class App:
             self.setting_window.destroy()
 
     def create_setting_window(self):
-        self.setting_window = Toplevel(master=self.main_panel)
-        self.setting_window.title('Settings')
-        # Icon of the main window
-        self.setting_window.iconbitmap('./images/setting.ico')
+        try:
+            # Disable the main_panel
+            self.main_panel.attributes('-disabled', True)
 
-        border_color = "black" if self.theme == 'Light' else "white"
+            self.setting_window = Toplevel(master=self.main_panel)
+            self.setting_window.title('Settings')
+            # Icon of the main window
+            self.setting_window.iconbitmap('./images/setting.ico')
 
-        left_frame = Frame(master=self.setting_window, bg=self.bg_color, highlightbackground=border_color,
-                           highlightthickness=1)
-        self.left_profile_frame = Frame(master=left_frame, bg=self.bg_color, highlightbackground=border_color,
-                                        highlightthickness=1, name='profile')
-        self.left_theme_frame = Frame(master=left_frame, bg=self.bg_color, highlightbackground=border_color,
-                                      highlightthickness=1, name='theme')
+            border_color = "black" if self.theme == 'Light' else "white"
 
-        self.left_profile_frame.pack(side=TOP, fill=BOTH)
-        self.left_theme_frame.pack(side=TOP, fill=BOTH)
+            left_frame = Frame(master=self.setting_window, bg=self.bg_color, highlightbackground=border_color,
+                               highlightthickness=1)
+            self.left_profile_frame = Frame(master=left_frame, bg=self.bg_color, highlightbackground=border_color,
+                                            highlightthickness=1, name='profile')
+            self.left_theme_frame = Frame(master=left_frame, bg=self.bg_color, highlightbackground=border_color,
+                                          highlightthickness=1, name='theme')
 
-        Label(master=self.left_profile_frame,
-              bg=self.bg_color,
-              fg=self.fg_color,
-              font=(self.font, self.font_size),
-              text='Profile').grid(row=0, column=0, padx=20, pady=10, sticky=N)
+            self.left_profile_frame.pack(side=TOP, fill=BOTH)
+            self.left_theme_frame.pack(side=TOP, fill=BOTH)
 
-        # Bind the create profile function to the frame and every widget (one label widget)
-        # Saving theme values in local variables
-        self.left_profile_frame.bind('<Button-1>', lambda event: [self.create_setting_contents('profile'),
-                                                                  self.font_value_var.set(self.font_value_var.get()),
-                                                                  self.theme_value.set(self.theme_value.get())])
-        [widget.bind('<Button-1>', lambda event: [self.create_setting_contents('profile'),
-                                                  self.font_value_var.set(self.font_value_var.get()),
-                                                  self.theme_value.set(self.theme_value.get())])
-         for widget in self.left_profile_frame.winfo_children()]
+            Label(master=self.left_profile_frame,
+                  bg=self.bg_color,
+                  fg=self.fg_color,
+                  font=(self.font, self.font_size),
+                  text='Profile').grid(row=0, column=0, padx=20, pady=10, sticky=N)
 
-        Label(master=self.left_theme_frame,
-              bg=self.bg_color,
-              fg=self.fg_color,
-              font=(self.font, self.font_size),
-              text='Appearance').grid(row=1, column=0, padx=20, pady=10, sticky=N)
+            # Bind the create profile function to the frame and every widget (one label widget)
+            # Saving theme values in local variables
+            self.left_profile_frame.bind('<Button-1>', lambda event: [self.create_setting_contents('profile'),
+                                                                      self.font_value_var.set(
+                                                                          self.font_value_var.get()),
+                                                                      self.theme_value.set(self.theme_value.get())])
+            [widget.bind('<Button-1>', lambda event: [self.create_setting_contents('profile'),
+                                                      self.font_value_var.set(self.font_value_var.get()),
+                                                      self.theme_value.set(self.theme_value.get())])
+             for widget in self.left_profile_frame.winfo_children()]
 
-        # Bind the create theme page function to the frame and every widget (one label widget)
-        # Saving profile values in local variables
-        self.left_theme_frame.bind('<Button-1>', lambda event: [self.create_setting_contents('theme'),
-                                                                self.name_var.set(self.name_var.get()),
-                                                                self.email_var.set(self.email_var.get()),
-                                                                self.phone_number_var.set(self.phone_number_var.get()),
-                                                                self.upi_id_var.set(self.upi_id_var.get()),
-                                                                self.email_password_var.set(
-                                                                    self.email_password_var.get())])
-        [widget.bind('<Button-1>', lambda event: [self.create_setting_contents('theme'),
-                                                  self.name_var.set(self.name_var.get()),
-                                                  self.email_var.set(self.email_var.get()),
-                                                  self.phone_number_var.set(self.phone_number_var.get()),
-                                                  self.upi_id_var.set(self.upi_id_var.get()),
-                                                  self.email_password_var.set(self.email_password_var.get())])
-         for widget in self.left_theme_frame.winfo_children()]
+            Label(master=self.left_theme_frame,
+                  bg=self.bg_color,
+                  fg=self.fg_color,
+                  font=(self.font, self.font_size),
+                  text='Appearance').grid(row=1, column=0, padx=20, pady=10, sticky=N)
 
-        right_frame = Frame(master=self.setting_window, bg=self.bg_color,
-                            highlightbackground=border_color, highlightthickness=1)
-        self.right_top_frame = Frame(master=self.setting_window, bg=self.bg_color,
-                                     highlightbackground=border_color, highlightthickness=1)
+            # Bind the create theme page function to the frame and every widget (one label widget)
+            # Saving profile values in local variables
+            self.left_theme_frame.bind('<Button-1>', lambda event: [self.create_setting_contents('theme'),
+                                                                    self.name_var.set(self.name_var.get()),
+                                                                    self.email_var.set(self.email_var.get()),
+                                                                    self.phone_number_var.set(
+                                                                        self.phone_number_var.get()),
+                                                                    self.upi_id_var.set(self.upi_id_var.get()),
+                                                                    self.email_password_var.set(
+                                                                        self.email_password_var.get())])
+            [widget.bind('<Button-1>', lambda event: [self.create_setting_contents('theme'),
+                                                      self.name_var.set(self.name_var.get()),
+                                                      self.email_var.set(self.email_var.get()),
+                                                      self.phone_number_var.set(self.phone_number_var.get()),
+                                                      self.upi_id_var.set(self.upi_id_var.get()),
+                                                      self.email_password_var.set(self.email_password_var.get())])
+             for widget in self.left_theme_frame.winfo_children()]
 
-        self.right_bottom_frame = Frame(master=self.setting_window, bg=self.bg_color,
-                                        highlightbackground=border_color, highlightthickness=1)
+            self.right_top_frame = Frame(master=self.setting_window, bg=self.bg_color,
+                                         highlightbackground=border_color, highlightthickness=1)
 
-        # default page in setting window
-        self.name_var = StringVar(value=self.name)
-        self.email_var = StringVar(value=self.user_email)
-        self.email_password_var = StringVar(value=self.email_password)
-        self.phone_number_var = StringVar(value=self.phone_number)
-        self.upi_id_var = StringVar(value=self.upi_id) if self.upi_id not in ['Type comma separated upi ids', ''] \
-            else StringVar(value='Type comma separated upi ids')
+            self.right_bottom_frame = Frame(master=self.setting_window, bg=self.bg_color,
+                                            highlightbackground=border_color, highlightthickness=1)
 
-        self.font_value_var = StringVar(value=self.font)
-        self.theme_value = StringVar(value=self.theme)
+            # default page in setting window
+            self.name_var = StringVar(value=self.name)
+            self.email_var = StringVar(value=self.user_email)
+            self.email_password_var = StringVar(value=self.email_password)
+            self.phone_number_var = StringVar(value=self.phone_number)
+            self.upi_id_var = StringVar(value=self.upi_id) if self.upi_id not in ['Type comma separated upi ids', ''] \
+                else StringVar(value='Type comma separated upi ids')
 
-        self.current_page = None
-        self.create_setting_contents('profile')
+            self.font_value_var = StringVar(value=self.font)
+            self.theme_value = StringVar(value=self.theme)
 
-        # Buttons
-        Button(master=self.right_bottom_frame,
-               bd=2,
-               fg=self.fg_color,
-               font=(self.font, self.button_size),
-               text='Cancel',
-               height=1,
-               width=10,
-               bg=self.bg_color,
-               command=lambda: [self.setting_window.destroy()]
-               ).pack(side=RIGHT, padx=4, pady=10)
-        Button(master=self.right_bottom_frame,
-               bd=2,
-               fg=self.fg_color,
-               font=(self.font, self.button_size),
-               text='Apply',
-               height=1,
-               width=10,
-               bg=self.bg_color,
-               command=lambda: [self.change_settings(window_destroy=False)]).pack(side=RIGHT, padx=4, pady=10)
-        Button(master=self.right_bottom_frame,
-               bd=2,
-               fg=self.fg_color,
-               font=(self.font, self.button_size),
-               text='Ok',
-               height=1,
-               width=10,
-               bg=self.bg_color,
-               command=lambda: [self.change_settings(window_destroy=True)]).pack(side=RIGHT, padx=4, pady=10)
+            self.current_page = None
+            self.create_setting_contents('profile')
 
-        left_frame.pack(side=LEFT, fill=Y)
-        right_frame.pack(side=LEFT)
-        self.right_top_frame.pack(side=TOP, fill=BOTH, expand=True)
-        self.right_bottom_frame.pack(side=TOP, fill=X)
+            # Buttons
+            Button(master=self.right_bottom_frame,
+                   bd=2,
+                   fg=self.fg_color,
+                   font=(self.font, self.button_size),
+                   text='Cancel',
+                   height=1,
+                   width=10,
+                   bg=self.bg_color,
+                   command=lambda: [self.setting_window.destroy()]
+                   ).pack(side=RIGHT, padx=4, pady=10)
+            Button(master=self.right_bottom_frame,
+                   bd=2,
+                   fg=self.fg_color,
+                   font=(self.font, self.button_size),
+                   text='Apply',
+                   height=1,
+                   width=10,
+                   bg=self.bg_color,
+                   command=lambda: [self.change_settings(window_destroy=False)]).pack(side=RIGHT, padx=4, pady=10)
+            Button(master=self.right_bottom_frame,
+                   bd=2,
+                   fg=self.fg_color,
+                   font=(self.font, self.button_size),
+                   text='Ok',
+                   height=1,
+                   width=10,
+                   bg=self.bg_color,
+                   command=lambda: [self.change_settings(window_destroy=True)]).pack(side=RIGHT, padx=4, pady=10)
 
-        # Configure setting_window
-        self.setting_window.config(bg=self.bg_color)
-        self.setting_window.minsize(750, 400)
-        self.setting_window.grab_set()
-        self.setting_window.mainloop()
+            left_frame.pack(side=LEFT, fill=Y)
+            self.right_top_frame.pack(side=TOP, fill=BOTH, expand=True)
+            self.right_bottom_frame.pack(side=TOP, fill=X)
 
-    def item_to_csv(self, list_name):
-        users = []
-        item_names = []
-        items_money = []
-        included = []
-        for user, item, mon, bool_var in self.items:
-            users.append(user)
-            item_names.append(item)
-            items_money.append(mon)
-            included.append(bool_var)
+            # Configure setting_window
+            self.setting_window.config(bg=self.bg_color)
+            self.setting_window.minsize(750, 400)
+            self.setting_window.grab_set()
 
-        # For those members whose entry has not been created once.
-        for member in self.list_of_members:
-            if member not in users:
-                users.append(member)
-                item_names.append('--')
-                items_money.append(0)
-                included.append('Yes')
-
-        if not os.path.exists(os.path.join(app_data_location, 'items')):
-            os.mkdir(os.path.join(app_data_location, 'items'))
-        with open(os.path.join(app_data_location, 'items', list_name), 'w') as out:
-            out.write('S.No.,Paid By,Item Names,Item Money,Included\n')
-            for j in range(len(item_names)):
-                out.write(str(j + 1) + ',' + users[j] + ',' + item_names[j] + ',' + str(items_money[j]) + ',' +
-                          included[j] + '\n')
+            # Adds flicker effect
+            self.setting_window.transient(self.main_panel)
+            # Wait for add_member_window to close
+            self.main_panel.wait_window(self.setting_window)
+        finally:
+            # Enable the main_panel
+            self.main_panel.attributes('-disabled', False)
+            # So that main_panel stays on the top of other windows after closing the add_member_window
+            self.main_panel.lift()
 
     def item_to_list(self, name, item, mon, bool_var):
         user = name.get()
@@ -1053,7 +1174,7 @@ class App:
             self.items.append((user, item_msg, mon_msg, bool_var))
         self.number_list_items_label.config(text=f'Items: {len(self.items)}')
 
-    def send_emails(self):
+    def create_done_window(self):
         if not self.items:
             messagebox.showwarning(master=self.main_panel, title='Error', message='Please add some items')
             return
@@ -1061,12 +1182,6 @@ class App:
         if event_name == '':
             messagebox.showwarning(master=self.main_panel, title='Error', message='Please add title for the event')
             return
-        share = self.total_money.get() / len(self.d_investor_money)
-        p4 = ''
-        phone = self.phone_number
-        phone_pay_upi, g_pay_upi, paytm_upi = get_upi_ids(self.upi_id)
-        csv_name = item_name(event_name)
-        self.item_to_csv(csv_name)
 
         done_window = Toplevel(master=self.main_panel)
         done_window.config(bg=self.bg_color)
@@ -1079,27 +1194,33 @@ class App:
         Label(master=first_frame,
               image=done_image,
               bg=self.bg_color).grid(row=0, column=0, sticky="nsew")
+
+        global progress_label
         progress_label = Label(master=first_frame,
                                text='Sending Emails',
                                font=(self.font, self.font_size),
                                fg=self.fg_color,
                                bg=self.bg_color)
         progress_label.grid(row=0, column=1, sticky="nsew")
+
         first_frame.pack(side='top', pady=10)
 
         second_frame = Frame(master=done_window, bg=self.bg_color)
         second_frame.pack(side='top', pady=10)
 
         third_frame = Frame(done_window, bg=self.bg_color)
-        new_app = Button(master=third_frame,
-                         bd=1,
-                         fg=self.fg_color,
-                         width=15,
-                         font=(self.font, self.button_size),
-                         text='Fill a new one',
-                         bg=self.bg_color,
-                         command=lambda: [self.main_panel.destroy(), new_application()])
 
+        global new_app_button
+        new_app_button = Button(master=third_frame,
+                                bd=1,
+                                fg=self.fg_color,
+                                width=15,
+                                font=(self.font, self.button_size),
+                                text='Fill a new one',
+                                bg=self.bg_color,
+                                command=lambda: [self.main_panel.destroy(), new_application()])
+
+        global close_button
         close_button = Button(master=third_frame,
                               bd=1,
                               fg=self.fg_color,
@@ -1110,168 +1231,41 @@ class App:
                               command=lambda: [self.main_panel.destroy(), conn.close()])
         third_frame.pack(side='top', pady=25)
 
-        # Progress bar
+        # Creating progress bar
+        global progress_var
         progress_var = DoubleVar(value=0.0)
         ttk.Progressbar(master=second_frame,
                         variable=progress_var,
                         orient=HORIZONTAL,
                         length=500,
                         mode='determinate').grid(row=0, column=0, sticky="nsew")
+
+        # Progress value label
+        global percentage_process
         percentage_process = Label(master=second_frame, fg=self.fg_color, bg=self.bg_color, font=(self.font, 10),
                                    text=f'{progress_var.get()}%')
         percentage_process.grid(row=0, column=1, sticky="nsew")
 
-        # Updating done_window window to display initial stage
-        done_window.update()
-
-        members_email = get_members()
-        for mem in self.d_investor_money:
-            if mem == self.name:
-                continue
-            msg = MIMEMultipart()
-            msg['Subject'] = f"Your share to pay in {event_name}"
-            msg['From'] = self.user_email
-            msg['To'] = members_email[mem]
-
-            ctype, encoding = mimetypes.guess_type(csv_name)
-            if ctype is None or encoding is not None:
-                ctype = "application/octet-stream"
-
-            maintype, subtype = ctype.split("/", 1)
-
-            with open(os.path.join(app_data_location, 'items', csv_name), "rb") as fp:
-                attachment = MIMEBase(maintype, subtype)
-                attachment.set_payload(fp.read())
-
-            encoders.encode_base64(attachment)
-            attachment.add_header("Content-Disposition", "attachment", filename=csv_name)
-            msg.attach(attachment)
-
-            if mem not in self.member_only_expenses:
-                member_share = share - self.d_investor_money[mem]
-                member_share_message = ''
-                p4 += f'<br/>{mem} will give you {round(member_share, 2)}&#8377;' if member_share > 0\
-                    else p4 + f'<br/>You have to give {round(-1 * member_share, 2)}&#8377; to {mem}'
-            else:
-                member_share = share - self.d_investor_money[mem] + self.member_only_expenses[mem]
-                member_share_message = f"""{self.name} spent {self.member_only_expenses[mem]}&#8377; 
-                on behalf of you"""
-                p4 += f'<br/>{mem} will give you {round(member_share, 2)}&#8377;' if member_share > 0\
-                    else p4 + f'<br/>You have to give {round(-1 * member_share, 2)}&#8377; to {mem}'
-                p4 += f". You have spent {self.member_only_expenses[mem]} on behalf of {mem}"
-            if member_share > 0:
-                try:  # If QR_Codes doesn't exit
-                    qr_code_line_1 = """<p style="margin: 0; font-size: 14px;"><em><strong>QR Codes are given below
-                     to make payment</strong></em></p>"""
-                    qr_code_line_2 = """<div align="center" style="line-height:10px"><img src="cid:qrcode"
-                     style="display: block; height: auto; border: 0; width: 325px; max-width: 100%;" width="325"/>
-                     </div>"""
-                    qr_code = MIMEImage(open(os.path.join(app_data_location, 'QR_Codes.png'), 'rb').read())
-                    qr_code.add_header('Content-ID', '<qrcode>')
-                    msg.attach(qr_code)
-                    pay_message = open('messages/pay_money_message.html') \
-                        .read().format(v1=self.total_money.get(),
-                                       v2=round(share, 2),
-                                       v3=self.d_investor_money[mem],
-                                       member_share_message=member_share_message,
-                                       v4=round(member_share, 2),
-                                       v5=self.name,
-                                       phone=phone,
-                                       phone_pay_upi=phone_pay_upi,
-                                       g_pay_upi=g_pay_upi,
-                                       paytm_upi=paytm_upi,
-                                       qr_code_line_1=qr_code_line_1,
-                                       qr_code_line_2=qr_code_line_2)
-                    msg_body = MIMEText(pay_message, 'html')
-                except FileNotFoundError:
-                    pay_message = open('messages/pay_money_message.html') \
-                        .read().format(v1=self.total_money.get(),
-                                       v2=round(share, 2),
-                                       v3=self.d_investor_money[mem],
-                                       member_share_message=member_share_message,
-                                       v4=round(member_share, 2),
-                                       v5=self.name,
-                                       phone=phone,
-                                       phone_pay_upi=phone_pay_upi,
-                                       g_pay_upi=g_pay_upi,
-                                       paytm_upi=paytm_upi,
-                                       qr_code_line_1="",
-                                       qr_code_line_2="")
-                    msg_body = MIMEText(pay_message, 'html')
-
-            else:
-                receive_money_message = open('messages/receive_money_message.html') \
-                    .read().format(v1=self.total_money.get(),
-                                   v2=round(share, 2),
-                                   v3=self.d_investor_money[mem],
-                                   member_share_message=member_share_message,
-                                   v4=self.name,
-                                   v5=round(-1 * member_share, 2))
-
-                msg_body = MIMEText(receive_money_message, 'html')
-
-            logo = MIMEImage(open('./images/logo.png', 'rb').read())
-            logo.add_header('Content-ID', '<logo>')
-            msg.attach(logo)
-
-            msg.attach(msg_body)
-
-            try:
-                with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-                    smtp.login(self.user_email, self.email_password)
-                    smtp.send_message(msg)
-
-                # Updating progress bar
-                progress_var.set(progress_var.get() + 100/len(self.d_investor_money))
-                percentage_process.config(text=f'{round(progress_var.get(), 2)}%')
-                done_window.update()
-            except Exception:
-                messagebox.showwarning(master=done_window, parent=done_window, title='Error',
-                                       message='You are not connected to internet!')
-                done_window.destroy()
-                return
-
-        d_msg = MIMEMultipart()
-        d_msg['Subject'] = f"Share in {event_name}"
-        d_msg['From'] = self.user_email
-        d_msg['To'] = self.user_email
-        d_msg.attach(attachment)
-        receive_email = open('messages/receive_email.html') \
-            .read().format(p1=self.total_money.get(),
-                           p2=round(share, 2),
-                           p3=self.d_investor_money[self.name],
-                           p4=p4)
-        d_msg_body = MIMEText(receive_email, 'html')
-        logo = MIMEImage(open('./images/logo.png', 'rb').read())
-        logo.add_header('Content-ID', '<logo>')
-        d_msg.attach(logo)
-
-        d_msg.attach(d_msg_body)
-        try:
-            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-                smtp.login(self.user_email, self.email_password)
-                smtp.send_message(d_msg)
-
-            # Updating progress bar
-            progress_var.set(progress_var.get() + 100/len(self.d_investor_money))
-            percentage_process.config(text=f'{round(progress_var.get(), 2)}%')
-            done_window.update()
-
-            # Putting options
-            new_app.grid(row=0, column=0, padx=10, sticky="nsew")
-            close_button.grid(row=0, column=1, padx=10, sticky="nsew")
-            progress_label.config(text='Emails are sent to members with their share and payment details')
-        except Exception:
-            messagebox.showwarning(master=done_window, parent=done_window, title='Error',
-                                   message='You are not connected to internet!')
-            done_window.destroy()
-            return
-
-        notification.notify(title="Share App", message="All emails are sent", app_name="Share App",
-                            app_icon='./images/logo.ico')
-
         done_window.grab_set()
         done_window.mainloop()
+
+    def done(self):
+        # Checking if we are connected to internet
+        try:
+            urllib.request.urlopen('https://google.com')
+        except urllib.error.URLError:
+            messagebox.showwarning(master=self.main_panel, parent=self.main_panel, title='Error',
+                                   message='You are not connected to internet!')
+            return
+
+        # Creating a different thread to send emails
+        threading.Thread(target=send_emails, args=(self.items, self.list_of_members, self.total_money.get(),
+                                                   self.d_investor_money, self.name, self.phone_number, self.user_email,
+                                                   self.email_password, self.upi_id, self.event.get(),
+                                                   self.member_only_expenses, get_members()),
+                         daemon=True).start()
+        # Creating done window
+        self.create_done_window()
 
     def create_main_window(self):
         if self.name == '' or self.user_email == '' or self.email_password == '':
@@ -1297,7 +1291,7 @@ class App:
                    text='Setup Profile',
                    bg=self.bg_color,
                    command=lambda: [self.create_setting_window()]).pack(side='top', padx=10, pady=10)
-            self.main_panel.minsize(1050, 175)
+            self.main_panel.minsize(1100, 185)
 
             # Since we are using self.individual_share_label and self.first_row_frame to determine whether listbox and
             # add event name label and other widgets are created or not we have to set it None so that after setup
@@ -1340,6 +1334,7 @@ class App:
                                           bg=self.entry_bg_color,
                                           justify='right')
             self.event_name_entry.grid(row=0, column=1, padx=4, pady=20)
+            self.event_name_entry.focus()
 
             Button(master=self.first_row_frame,
                    bd=2,
@@ -1366,18 +1361,217 @@ class App:
                                                 bg=self.bg_color,
                                                 fg=self.fg_color,
                                                 text='User: ' + self.name)
-            self.username_label_taskbar.grid(row=0, column=0, padx=5, pady=2)
+            self.username_label_taskbar.pack(side='left', padx=5, pady=2)
             self.email_taskbar = Label(master=self.taskbar_frame,
                                        bg=self.bg_color,
                                        fg=self.fg_color,
                                        text='Email: ' + self.user_email)
-            self.email_taskbar.grid(row=0, column=1, padx=5, pady=2)
+            self.email_taskbar.pack(side='left', padx=5, pady=2)
+
+            # Create Sizegrip
+            ttk.Sizegrip(self.taskbar_frame).pack(side='right', anchor='se')
+
             self.taskbar_frame.pack(side=BOTTOM, fill=X)
+
+        
+def item_to_csv(items, list_of_members, list_name):
+    users = []
+    item_names = []
+    items_money = []
+    included = []
+    for user, item, mon, bool_var in items:
+        users.append(user)
+        item_names.append(item)
+        items_money.append(mon)
+        included.append(bool_var)
+
+    # For those members whose entry has not been created once.
+    for member in list_of_members:
+        if member not in users:
+            users.append(member)
+            item_names.append('--')
+            items_money.append(0)
+            included.append('Yes')
+
+    if not os.path.exists(os.path.join(app_data_location, 'items')):
+        os.mkdir(os.path.join(app_data_location, 'items'))
+    with open(os.path.join(app_data_location, 'items', list_name), 'w') as out:
+        out.write('S.No.,Paid By,Item Names,Item Money,Included\n')
+        for j in range(len(item_names)):
+            out.write(str(j + 1) + ',' + users[j] + ',' + item_names[j] + ',' + str(items_money[j]) + ',' +
+                      included[j] + '\n')
+
+
+def send_emails(items, list_of_members, total_money, d_investor_money, name, phone_number, user_email, email_password,
+                upi_id, event, member_only_expenses, members_email):
+    """This function sends emails and update progress bar"""
+    share = total_money / len(d_investor_money)
+    p4 = ''
+    phone = phone_number
+    phone_pay_upi, g_pay_upi, paytm_upi = get_upi_ids(upi_id)
+    event_name = event
+    csv_name = item_name(event_name)
+    item_to_csv(items, list_of_members, csv_name)
+
+    for mem in d_investor_money:
+        if mem == name:
+            continue
+        msg = MIMEMultipart()
+        msg['Subject'] = f"Your share to pay in {event_name}"
+        msg['From'] = user_email
+        msg['To'] = members_email[mem]
+
+        ctype, encoding = mimetypes.guess_type(csv_name)
+        if ctype is None or encoding is not None:
+            ctype = "application/octet-stream"
+
+        maintype, subtype = ctype.split("/", 1)
+
+        with open(os.path.join(app_data_location, 'items', csv_name), "rb") as fp:
+            attachment = MIMEBase(maintype, subtype)
+            attachment.set_payload(fp.read())
+
+        encoders.encode_base64(attachment)
+        attachment.add_header("Content-Disposition", "attachment", filename=csv_name)
+        msg.attach(attachment)
+
+        if mem not in member_only_expenses:
+            member_share = share - d_investor_money[mem]
+            member_share_message = ''
+            p4 += f'<br/>{mem} will give you {round(member_share, 2)}&#8377;' if member_share > 0 \
+                else p4 + f'<br/>You have to give {round(-1 * member_share, 2)}&#8377; to {mem}'
+        else:
+            member_share = share - d_investor_money[mem] + member_only_expenses[mem]
+            member_share_message = f"""{name} spent {member_only_expenses[mem]}&#8377; 
+                    on behalf of you"""
+            p4 += f'<br/>{mem} will give you {round(member_share, 2)}&#8377;' if member_share > 0 \
+                else p4 + f'<br/>You have to give {round(-1 * member_share, 2)}&#8377; to {mem}'
+            p4 += f". You have spent {member_only_expenses[mem]} on behalf of {mem}"
+        if member_share > 0:
+            try:  # If QR_Codes doesn't exit
+                qr_code_line_1 = """<p style="margin: 0; font-size: 14px;"><em><strong>QR Codes are given below
+                         to make payment</strong></em></p>"""
+                qr_code_line_2 = """<div align="center" style="line-height:10px"><img src="cid:qrcode"
+                         style="display: block; height: auto; border: 0; width: 325px; max-width: 100%;" width="325"/>
+                         </div>"""
+                qr_code = MIMEImage(open(os.path.join(app_data_location, 'QR_Codes.png'), 'rb').read())
+                qr_code.add_header('Content-ID', '<qrcode>')
+                msg.attach(qr_code)
+                pay_message = open('messages/pay_money_message.html') \
+                    .read().format(v1=total_money,
+                                   v2=round(share, 2),
+                                   v3=d_investor_money[mem],
+                                   member_share_message=member_share_message,
+                                   v4=round(member_share, 2),
+                                   v5=name,
+                                   phone=phone,
+                                   phone_pay_upi=phone_pay_upi,
+                                   g_pay_upi=g_pay_upi,
+                                   paytm_upi=paytm_upi,
+                                   qr_code_line_1=qr_code_line_1,
+                                   qr_code_line_2=qr_code_line_2)
+                msg_body = MIMEText(pay_message, 'html')
+            except FileNotFoundError:
+                pay_message = open('messages/pay_money_message.html') \
+                    .read().format(v1=total_money,
+                                   v2=round(share, 2),
+                                   v3=d_investor_money[mem],
+                                   member_share_message=member_share_message,
+                                   v4=round(member_share, 2),
+                                   v5=name,
+                                   phone=phone,
+                                   phone_pay_upi=phone_pay_upi,
+                                   g_pay_upi=g_pay_upi,
+                                   paytm_upi=paytm_upi,
+                                   qr_code_line_1="",
+                                   qr_code_line_2="")
+                msg_body = MIMEText(pay_message, 'html')
+
+        else:
+            receive_money_message = open('messages/receive_money_message.html') \
+                .read().format(v1=total_money,
+                               v2=round(share, 2),
+                               v3=d_investor_money[mem],
+                               member_share_message=member_share_message,
+                               v4=name,
+                               v5=round(-1 * member_share, 2))
+
+            msg_body = MIMEText(receive_money_message, 'html')
+
+        logo = MIMEImage(open('./images/logo.png', 'rb').read())
+        logo.add_header('Content-ID', '<logo>')
+        msg.attach(logo)
+
+        msg.attach(msg_body)
+
+        # sending email
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(user_email, email_password)
+            smtp.send_message(msg)
+
+        # Updating progress_var variable and percentage_process with current value of progress_var
+        progress_var.set(progress_var.get() + 100/len(d_investor_money))
+        percentage_process.config(text=f'{round(progress_var.get(), 2)}%')
+
+    d_msg = MIMEMultipart()
+    d_msg['Subject'] = f"Share in {event_name}"
+    d_msg['From'] = user_email
+    d_msg['To'] = user_email
+    d_msg.attach(attachment)
+    receive_email = open('messages/receive_email.html') \
+        .read().format(p1=total_money,
+                       p2=round(share, 2),
+                       p3=d_investor_money[name],
+                       p4=p4)
+    d_msg_body = MIMEText(receive_email, 'html')
+    logo = MIMEImage(open('./images/logo.png', 'rb').read())
+    logo.add_header('Content-ID', '<logo>')
+    d_msg.attach(logo)
+
+    d_msg.attach(d_msg_body)
+
+    # sending email
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+        smtp.login(user_email, email_password)
+        smtp.send_message(d_msg)
+
+    # Updating progress_var variable and percentage_process with current value of progress_var
+    progress_var.set(progress_var.get() + 100/len(d_investor_money))
+    percentage_process.config(text=f'{round(progress_var.get(), 2)}%')
+
+    # Showing new msg, new_app_button and close_button when process finishes
+    progress_label.config(text='Emails are sent to members with their share and payment details')
+    new_app_button.grid(row=0, column=0, padx=10, sticky="nsew")
+    close_button.grid(row=0, column=1, padx=10, sticky="nsew")
+
+    # Notification
+    notification.notify(title="Share App", message="All emails are sent", app_name="Share App",
+                        app_icon='./images/logo.ico')
 
 
 def new_application():
+    # Declaring some global variables and setting them to None
+    global progress_label
+    global new_app_button
+    global close_button
+    global progress_var
+    global percentage_process
+
+    progress_label = None
+    new_app_button = None
+    close_button = None
+    progress_var = None
+    percentage_process = None
+
+    # Creating an instance of App class and passing it a Tk object
     App(Tk())
 
 
 if __name__ == '__main__':
+    global progress_label
+    global new_app_button
+    global close_button
+    global progress_var
+    global percentage_process
+
     new_application()

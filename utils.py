@@ -44,6 +44,7 @@ def get_upi_ids(upi_ids):
     upi_ids = upi_ids.strip().split(',')
     res = ['', '', '']
     for upi in upi_ids:
+        upi = upi.strip()
         if upi.split('@')[-1] == 'ybl':
             res[0] = upi
         elif upi.split('@')[-1][:2] == 'ok':
